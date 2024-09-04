@@ -8,7 +8,7 @@
 
 #include <zephyr/zbus/zbus.h>
 
-#include "unicast_server.h"
+// #include "unicast_server.h"
 #include "zbus_common.h"
 #include "nrf5340_audio_dk.h"
 #include "led.h"
@@ -16,12 +16,12 @@
 #include "macros_common.h"
 #include "audio_system.h"
 #include "button_handler.h"
-#include "bt_le_audio_tx.h"
-#include "bt_mgmt.h"
-#include "bt_rendering_and_capture.h"
+// #include "bt_le_audio_tx.h"
+// #include "bt_mgmt.h"
+// #include "bt_rendering_and_capture.h"
 #include "audio_datapath.h"
-#include "bt_content_ctrl.h"
-#include "le_audio.h"
+// #include "bt_content_ctrl.h"
+// #include "le_audio.h"
 #include "le_audio_rx.h"
 #include "fw_info_app.h"
 
@@ -33,9 +33,12 @@ ZBUS_SUBSCRIBER_DEFINE(button_evt_sub, CONFIG_BUTTON_MSG_SUB_QUEUE_SIZE);
 ZBUS_MSG_SUBSCRIBER_DEFINE(le_audio_evt_sub);
 
 ZBUS_CHAN_DECLARE(button_chan);
-ZBUS_CHAN_DECLARE(le_audio_chan);
-ZBUS_CHAN_DECLARE(bt_mgmt_chan);
-ZBUS_CHAN_DECLARE(volume_chan);
+
+ZBUS_CHAN_DEFINE(cont_media_chan, struct content_control_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
+		 ZBUS_MSG_INIT(0));
+// ZBUS_CHAN_DECLARE(le_audio_chan);
+// ZBUS_CHAN_DECLARE(bt_mgmt_chan);
+// ZBUS_CHAN_DECLARE(volume_chan);
 
 ZBUS_OBS_DECLARE(volume_evt_sub);
 
@@ -50,10 +53,63 @@ K_THREAD_STACK_DEFINE(le_audio_msg_sub_thread_stack, CONFIG_LE_AUDIO_MSG_SUB_STA
 
 static enum stream_state strm_state = STATE_PAUSED;
 
+/** Media states */
+#define BT_MCS_MEDIA_STATE_INACTIVE 0x00
+#define BT_MCS_MEDIA_STATE_PLAYING  0x01
+#define BT_MCS_MEDIA_STATE_PAUSED   0x02
+#define BT_MCS_MEDIA_STATE_SEEKING  0x03
+#define BT_MCS_MEDIA_STATE_LAST     0x04
+
+static uint8_t media_player_state = BT_MCS_MEDIA_STATE_PLAYING;
+
 /* Function for handling all stream state changes */
 static void stream_state_set(enum stream_state stream_state_new)
 {
 	strm_state = stream_state_new;
+}
+
+/*
+	Function for getting the current state of the media player
+	Is a modified version of mcs_media_state_cb from bt_content_ctrl_media to avoid bt
+*/
+bool content_ctlr_media_state_playing(void){
+	if (media_player_state == BT_MCS_MEDIA_STATE_PLAYING) {
+		return true;
+	}
+
+	return false;
+}
+
+/*
+	Function for passing start message to media channel
+	Is a modified version of bt_content_ctrl_start from bt_content_ctrl to avoid bt
+*/
+int content_ctrl_start(struct bt_conn *conn)
+{
+	int ret;
+	struct content_control_msg msg;
+
+	msg.event = MEDIA_START;
+
+	ret = zbus_chan_pub(&cont_media_chan, &msg, K_NO_WAIT);
+	ERR_CHK_MSG(ret, "zbus publication failed");
+
+	return 0;
+}
+
+/* Function for passing stop message to media channel
+	 Is a modified version of bt_content_ctrl_stop from bt_content_ctrl to avoid bt
+*/
+int content_ctrl_stop(){
+	int ret;
+	struct content_control_msg msg;
+
+	msg.event = MEDIA_STOP;
+
+	ret = zbus_chan_pub(&cont_media_chan, &msg, K_NO_WAIT);
+	ERR_CHK_MSG(ret, "zbus publication failed");
+
+	return 0;
 }
 
 /**
@@ -82,20 +138,22 @@ static void button_msg_sub_thread(void)
 		}
 
 		switch (msg.button_pin) {
+		// TODO: Implement the button actions without bluetooth
 		case BUTTON_PLAY_PAUSE:
+			LOG_INF("Play/pause button pressed");
 			if (IS_ENABLED(CONFIG_WALKIE_TALKIE_DEMO)) {
 				LOG_WRN("Play/pause not supported in walkie-talkie mode");
 				break;
 			}
 
-			if (bt_content_ctlr_media_state_playing()) {
-				ret = bt_content_ctrl_stop(NULL);
+			if (content_ctlr_media_state_playing()) {
+				ret = content_ctrl_stop(NULL);
 				if (ret) {
 					LOG_WRN("Could not stop: %d", ret);
 				}
 
-			} else if (!bt_content_ctlr_media_state_playing()) {
-				ret = bt_content_ctrl_start(NULL);
+			} else if (!content_ctlr_media_state_playing()) {
+				ret = content_ctrl_start(NULL);
 				if (ret) {
 					LOG_WRN("Could not start: %d", ret);
 				}
@@ -107,52 +165,61 @@ static void button_msg_sub_thread(void)
 			break;
 
 		case BUTTON_VOLUME_UP:
-			ret = bt_r_and_c_volume_up();
-			if (ret) {
-				LOG_WRN("Failed to increase volume: %d", ret);
-			}
+			LOG_INF("Volume up button pressed");
+			// ret = bt_r_and_c_volume_up();
+			// if (ret) {
+			// 	LOG_WRN("Failed to increase volume: %d", ret);
+			// }
 
 			break;
 
 		case BUTTON_VOLUME_DOWN:
-			ret = bt_r_and_c_volume_down();
-			if (ret) {
-				LOG_WRN("Failed to decrease volume: %d", ret);
-			}
+			LOG_INF("Volume down button pressed");
+			// ret = bt_r_and_c_volume_down();
+			// if (ret) {
+			// 	LOG_WRN("Failed to decrease volume: %d", ret);
+			// }
 
 			break;
 
 		case BUTTON_4:
-			if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
-				if (IS_ENABLED(CONFIG_WALKIE_TALKIE_DEMO)) {
-					LOG_DBG("Test tone is disabled in walkie-talkie mode");
-					break;
-				}
+			LOG_INF("Button 4 pressed");
+			// if (IS_ENABLED(CONFIG_AUDIO_TEST_TONE)) {
+			// 	if (IS_ENABLED(CONFIG_WALKIE_TALKIE_DEMO)) {
+			// 		LOG_DBG("Test tone is disabled in walkie-talkie mode");
+			// 		break;
+			// 	}
 
-				if (strm_state != STATE_STREAMING) {
-					LOG_WRN("Not in streaming state");
-					break;
-				}
+			// 	if (strm_state != STATE_STREAMING) {
+			// 		LOG_WRN("Not in streaming state");
+			// 		break;
+			// 	}
 
-				ret = audio_system_encode_test_tone_step();
-				if (ret) {
-					LOG_WRN("Failed to play test tone, ret: %d", ret);
-				}
+			// 	ret = audio_system_encode_test_tone_step();
+			// 	if (ret) {
+			// 		LOG_WRN("Failed to play test tone, ret: %d", ret);
+			// 	}
 
-				break;
-			}
+			// 	break;
+			// }
 
 			break;
 
 		case BUTTON_5:
-			if (IS_ENABLED(CONFIG_AUDIO_MUTE)) {
-				ret = bt_r_and_c_volume_mute(false);
-				if (ret) {
-					LOG_WRN("Failed to mute, ret: %d", ret);
-				}
+			LOG_INF("Button 5 pressed");
+			// if (IS_ENABLED(CONFIG_AUDIO_MUTE)) {
+			// 	ret = bt_r_and_c_volume_mute(false);
+			// 	if (ret) {
+			// 		LOG_WRN("Failed to mute, ret: %d", ret);
+			// 	}
 
-				break;
-			}
+			// 	break;
+			// }
+			audio_system_start();
+			stream_state_set(STATE_STREAMING);
+			ret = led_blink(LED_APP_1_BLUE);
+			ERR_CHK(ret);
+			audio_datapath_tone_play(500,10000,0.5);
 
 			break;
 
@@ -225,12 +292,12 @@ static void le_audio_msg_sub_thread(void)
 		case LE_AUDIO_EVT_CONFIG_RECEIVED:
 			LOG_DBG("LE audio config received");
 
-			ret = unicast_server_config_get(msg.conn, msg.dir, &bitrate_bps,
-							&sampling_rate_hz, NULL);
-			if (ret) {
-				LOG_WRN("Failed to get config: %d", ret);
-				break;
-			}
+			// ret = unicast_server_config_get(msg.conn, msg.dir, &bitrate_bps,
+			// 				&sampling_rate_hz, NULL);
+			// if (ret) {
+			// 	LOG_WRN("Failed to get config: %d", ret);
+			// 	break;
+			// }
 
 			LOG_DBG("\tSampling rate: %d Hz", sampling_rate_hz);
 			LOG_DBG("\tBitrate (compressed): %d bps", bitrate_bps);
@@ -250,12 +317,12 @@ static void le_audio_msg_sub_thread(void)
 		case LE_AUDIO_EVT_PRES_DELAY_SET:
 			LOG_DBG("Set presentation delay");
 
-			ret = unicast_server_config_get(msg.conn, BT_AUDIO_DIR_SINK, NULL, NULL,
-							&pres_delay_us);
-			if (ret) {
-				LOG_ERR("Failed to get config: %d", ret);
-				break;
-			}
+			// ret = unicast_server_config_get(msg.conn, BT_AUDIO_DIR_SINK, NULL, NULL,
+			// 				&pres_delay_us);
+			// if (ret) {
+			// 	LOG_ERR("Failed to get config: %d", ret);
+			// 	break;
+			// }
 
 			ret = audio_datapath_pres_delay_us_set(pres_delay_us);
 			if (ret) {
@@ -270,10 +337,10 @@ static void le_audio_msg_sub_thread(void)
 		case LE_AUDIO_EVT_NO_VALID_CFG:
 			LOG_WRN("No valid configurations found, will disconnect");
 
-			ret = bt_mgmt_conn_disconnect(msg.conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
-			if (ret) {
-				LOG_ERR("Failed to disconnect: %d", ret);
-			}
+			// ret = bt_mgmt_conn_disconnect(msg.conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+			// if (ret) {
+			// 	LOG_ERR("Failed to disconnect: %d", ret);
+			// }
 
 			break;
 
@@ -329,12 +396,12 @@ static int zbus_subscribers_create(void)
  */
 static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 {
-	int ret;
+	// int ret;
 	const struct bt_mgmt_msg *msg;
 	uint8_t num_conn = 0;
 
 	msg = zbus_chan_const_msg(chan);
-	bt_mgmt_num_conn_get(&num_conn);
+	// bt_mgmt_num_conn_get(&num_conn);
 
 	switch (msg->event) {
 	case BT_MGMT_CONNECTED:
@@ -347,22 +414,22 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 		/* NOTE: The string below is used by the Nordic CI system */
 		LOG_INF("Disconnection event. Num connections: %u", num_conn);
 
-		ret = bt_content_ctrl_conn_disconnected(msg->conn);
-		if (ret) {
-			LOG_ERR("Failed to handle disconnection in content control: %d", ret);
-		}
+		// ret = bt_content_ctrl_conn_disconnected(msg->conn);
+		// if (ret) {
+		// 	LOG_ERR("Failed to handle disconnection in content control: %d", ret);
+		// }
 
 		break;
 
 	case BT_MGMT_SECURITY_CHANGED:
 		LOG_INF("Security changed");
 
-		ret = bt_content_ctrl_discover(msg->conn);
-		if (ret == -EALREADY) {
-			LOG_DBG("Discovery in progress or already done");
-		} else if (ret) {
-			LOG_ERR("Failed to start discovery of content control: %d", ret);
-		}
+		// ret = bt_content_ctrl_discover(msg->conn);
+		// if (ret == -EALREADY) {
+		// 	LOG_DBG("Discovery in progress or already done");
+		// } else if (ret) {
+		// 	LOG_ERR("Failed to start discovery of content control: %d", ret);
+		// }
 
 		break;
 
@@ -394,23 +461,23 @@ static int zbus_link_producers_observers(void)
 		return ret;
 	}
 
-	ret = zbus_chan_add_obs(&le_audio_chan, &le_audio_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
-	if (ret) {
-		LOG_ERR("Failed to add le_audio sub");
-		return ret;
-	}
+	// ret = zbus_chan_add_obs(&le_audio_chan, &le_audio_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
+	// if (ret) {
+	// 	LOG_ERR("Failed to add le_audio sub");
+	// 	return ret;
+	// }
 
-	ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
-	if (ret) {
-		LOG_ERR("Failed to add bt_mgmt sub");
-		return ret;
-	}
+	// ret = zbus_chan_add_obs(&bt_mgmt_chan, &bt_mgmt_evt_listen, ZBUS_ADD_OBS_TIMEOUT_MS);
+	// if (ret) {
+	// 	LOG_ERR("Failed to add bt_mgmt sub");
+	// 	return ret;
+	// }
 
-	ret = zbus_chan_add_obs(&volume_chan, &volume_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
-	if (ret) {
-		LOG_ERR("Failed to add volume sub");
-		return ret;
-	}
+	// ret = zbus_chan_add_obs(&volume_chan, &volume_evt_sub, ZBUS_ADD_OBS_TIMEOUT_MS);
+	// if (ret) {
+	// 	LOG_ERR("Failed to add volume sub");
+	// 	return ret;
+	// }
 
 	return 0;
 }
@@ -439,33 +506,33 @@ static int ext_adv_populate(struct bt_data *ext_adv_buf, size_t ext_adv_buf_size
 	ext_adv_buf[ext_adv_buf_cnt].data = uuid_buf.data;
 	ext_adv_buf_cnt++;
 
-	ret = bt_r_and_c_uuid_populate(&uuid_buf);
+	// ret = bt_r_and_c_uuid_populate(&uuid_buf);
 
-	if (ret) {
-		LOG_ERR("Failed to add adv data from renderer: %d", ret);
-		return ret;
-	}
+	// if (ret) {
+	// 	LOG_ERR("Failed to add adv data from renderer: %d", ret);
+	// 	return ret;
+	// }
 
-	ret = bt_content_ctrl_uuid_populate(&uuid_buf);
+	// ret = bt_content_ctrl_uuid_populate(&uuid_buf);
 
-	if (ret) {
-		LOG_ERR("Failed to add adv data from content ctrl: %d", ret);
-		return ret;
-	}
+	// if (ret) {
+	// 	LOG_ERR("Failed to add adv data from content ctrl: %d", ret);
+	// 	return ret;
+	// }
 
-	ret = bt_mgmt_manufacturer_uuid_populate(&uuid_buf, CONFIG_BT_DEVICE_MANUFACTURER_ID);
-	if (ret) {
-		LOG_ERR("Failed to add adv data with manufacturer ID: %d", ret);
-		return ret;
-	}
+	// ret = bt_mgmt_manufacturer_uuid_populate(&uuid_buf, CONFIG_BT_DEVICE_MANUFACTURER_ID);
+	// if (ret) {
+	// 	LOG_ERR("Failed to add adv data with manufacturer ID: %d", ret);
+	// 	return ret;
+	// }
 
-	ret = unicast_server_adv_populate(&ext_adv_buf[ext_adv_buf_cnt],
-					  ext_adv_buf_size - ext_adv_buf_cnt);
+	// ret = unicast_server_adv_populate(&ext_adv_buf[ext_adv_buf_cnt],
+	// 				  ext_adv_buf_size - ext_adv_buf_cnt);
 
-	if (ret < 0) {
-		LOG_ERR("Failed to add adv data from unicast server: %d", ret);
-		return ret;
-	}
+	// if (ret < 0) {
+	// 	LOG_ERR("Failed to add adv data from unicast server: %d", ret);
+	// 	return ret;
+	// }
 
 	ext_adv_buf_cnt += ret;
 
@@ -485,26 +552,28 @@ uint8_t stream_state_get(void)
 	return strm_state;
 }
 
+// NOTE: This function is the actual encoding and sending of the audio data, nead to be implemented for wifi
 void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
 {
-	int ret;
-	static int prev_ret;
+	LOG_INF("Sending audio data");
+	// int ret;
+	// static int prev_ret;
 
-	struct le_audio_encoded_audio enc_audio = {.data = data, .size = size, .num_ch = num_ch};
+	// struct le_audio_encoded_audio enc_audio = {.data = data, .size = size, .num_ch = num_ch};
 
-	if (strm_state == STATE_STREAMING) {
-		ret = unicast_server_send(enc_audio);
+	// if (strm_state == STATE_STREAMING) {
+	// 	ret = unicast_server_send(enc_audio);
 
-		if (ret != 0 && ret != prev_ret) {
-			if (ret == -ECANCELED) {
-				LOG_WRN("Sending operation cancelled");
-			} else {
-				LOG_WRN("Problem with sending LE audio data, ret: %d", ret);
-			}
-		}
+	// 	if (ret != 0 && ret != prev_ret) {
+	// 		if (ret == -ECANCELED) {
+	// 			LOG_WRN("Sending operation cancelled");
+	// 		} else {
+	// 			LOG_WRN("Problem with sending LE audio data, ret: %d", ret);
+	// 		}
+	// 	}
 
-		prev_ret = ret;
-	}
+	// 	prev_ret = ret;
+	// }
 }
 
 int main(void)
@@ -512,11 +581,11 @@ int main(void)
 	int ret;
 	enum bt_audio_location location;
 	enum audio_channel channel;
-	static struct bt_data ext_adv_buf[CONFIG_EXT_ADV_BUF_MAX];
+	// static struct bt_data ext_adv_buf[CONFIG_EXT_ADV_BUF_MAX];
 
 	LOG_DBG("Main started");
 
-	size_t ext_adv_buf_cnt = 0;
+	// size_t ext_adv_buf_cnt = 0;
 
 	ret = nrf5340_audio_dk_init();
 	ERR_CHK(ret);
@@ -524,8 +593,8 @@ int main(void)
 	ret = fw_info_app_print();
 	ERR_CHK(ret);
 
-	ret = bt_mgmt_init();
-	ERR_CHK(ret);
+	// ret = bt_mgmt_init();
+	// ERR_CHK(ret);
 
 	ret = audio_system_init();
 	ERR_CHK(ret);
@@ -547,20 +616,20 @@ int main(void)
 		location = BT_AUDIO_LOCATION_FRONT_RIGHT;
 	}
 
-	ret = unicast_server_enable(le_audio_rx_data_handler, location);
-	ERR_CHK_MSG(ret, "Failed to enable LE Audio");
+	// ret = unicast_server_enable(le_audio_rx_data_handler, location);
+	// ERR_CHK_MSG(ret, "Failed to enable LE Audio");
 
-	ret = bt_r_and_c_init();
-	ERR_CHK(ret);
+	// ret = bt_r_and_c_init();
+	// ERR_CHK(ret);
 
-	ret = bt_content_ctrl_init();
-	ERR_CHK(ret);
+	// ret = bt_content_ctrl_init();
+	// ERR_CHK(ret);
 
-	ret = ext_adv_populate(ext_adv_buf, ARRAY_SIZE(ext_adv_buf), &ext_adv_buf_cnt);
-	ERR_CHK(ret);
+	// ret = ext_adv_populate(ext_adv_buf, ARRAY_SIZE(ext_adv_buf), &ext_adv_buf_cnt);
+	// ERR_CHK(ret);
 
-	ret = bt_mgmt_adv_start(0, ext_adv_buf, ext_adv_buf_cnt, NULL, 0, true);
-	ERR_CHK(ret);
+	// ret = bt_mgmt_adv_start(0, ext_adv_buf, ext_adv_buf_cnt, NULL, 0, true);
+	// ERR_CHK(ret);
 
 	return 0;
 }

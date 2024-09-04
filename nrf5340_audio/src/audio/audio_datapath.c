@@ -497,6 +497,7 @@ K_TIMER_DEFINE(tone_stop_timer, tone_stop_timer_handler, NULL);
 
 int audio_datapath_tone_play(uint16_t freq, uint16_t dur_ms, float amplitude)
 {
+	LOG_INF("Playing test tone at %d Hz for %d ms with amplitude %f", freq, dur_ms, amplitude);
 	int ret;
 
 	if (tone_active) {

@@ -106,6 +106,7 @@ static void audio_headset_configure(void)
 
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
 {
+	LOG_WRN("Encoder thread started");
 	int ret;
 	uint32_t blocks_alloced_num;
 	uint32_t blocks_locked_num;
