@@ -42,6 +42,14 @@ if (CONFIG_BT_BAP_UNICAST_SERVER)
 	add_subdirectory(unicast_server)
 endif()
 
+if (CONFIG_MINIMAL_OUT)
+    add_subdirectory(minimal_out)
+endif()
+
+if (CONFIG_USB_AUDIO)
+    add_subdirectory(usb_audio)
+endif()
+
 
 # Include application events and configuration headers
 zephyr_library_include_directories(

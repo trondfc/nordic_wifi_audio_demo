@@ -368,7 +368,7 @@ void audio_system_start(void)
 {
 	int ret;
 
-	if (CONFIG_AUDIO_DEV == HEADSET) {
+	if (CONFIG_AUDIO_DEV == HEADSET || CONFIG_AUDIO_DEV == 3 || CONFIG_AUDIO_DEV == 4) {
 		audio_headset_configure();
 	} else if (CONFIG_AUDIO_DEV == GATEWAY) {
 		audio_gateway_configure();
@@ -376,7 +376,7 @@ void audio_system_start(void)
 		LOG_ERR("Invalid CONFIG_AUDIO_DEV: %d", CONFIG_AUDIO_DEV);
 		ERR_CHK(-EINVAL);
 	}
-
+	LOG_WRN("Audio system started");
 	if (!fifo_tx.initialized) {
 		ret = data_fifo_init(&fifo_tx);
 		ERR_CHK_MSG(ret, "Failed to set up tx FIFO");
@@ -387,9 +387,11 @@ void audio_system_start(void)
 		ERR_CHK_MSG(ret, "Failed to set up rx FIFO");
 	}
 
+	LOG_WRN("FIFOs initialized");
 	ret = sw_codec_init(sw_codec_cfg);
 	ERR_CHK_MSG(ret, "Failed to set up codec");
 
+	LOG_WRN("sw Codec initialized");
 	sw_codec_cfg.initialized = true;
 
 	if (sw_codec_cfg.encoder.enabled && encoder_thread_id == NULL) {
@@ -401,15 +403,24 @@ void audio_system_start(void)
 		ERR_CHK(ret);
 	}
 
+	LOG_WRN("Encoder thread started");
+
 #if ((CONFIG_AUDIO_SOURCE_USB) && (CONFIG_AUDIO_DEV == GATEWAY))
 	ret = audio_usb_start(&fifo_tx, &fifo_rx);
 	ERR_CHK(ret);
 #else
+
+	ret = audio_usb_start(&fifo_tx, &fifo_rx);
+	ERR_CHK(ret);
+	
 	ret = hw_codec_default_conf_enable();
 	ERR_CHK(ret);
 
+	LOG_WRN("HW Codec default conf enabled");
+
 	ret = audio_datapath_start(&fifo_rx);
 	ERR_CHK(ret);
+	LOG_WRN("Audio datapath started");
 #endif /* ((CONFIG_AUDIO_SOURCE_USB) && (CONFIG_AUDIO_DEV == GATEWAY))) */
 }
 

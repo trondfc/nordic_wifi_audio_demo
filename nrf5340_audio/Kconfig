@@ -18,7 +18,7 @@ config CUSTOM_BROADCASTER
 
 config AUDIO_DEV
 	int "Select which device type to compile for. 1=HEADSET or 2=GATEWAY"
-	range 1 2
+	range 1 4
 	default 1
 	help
 	  Setting this variable to 1 selects that the project is compiled
@@ -54,6 +54,14 @@ endif # TRANSPORT_CIS && AUDIO_DEV = 1
 if (TRANSPORT_CIS && AUDIO_DEV = 2)
 rsource "unicast_client/Kconfig.defaults"
 endif # TRANSPORT_CIS && AUDIO_DEV = 2
+
+if (TRANSPORT_CIS && AUDIO_DEV = 3)
+rsource "minimal_out/Kconfig.defaults"
+endif # TRANSPORT_CIS && AUDIO_DEV = 3
+
+if (TRANSPORT_CIS && AUDIO_DEV = 4)
+rsource "usb_audio/Kconfig.defaults"
+endif # TRANSPORT_CIS && AUDIO_DEV = 4
 
 
 

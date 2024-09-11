@@ -78,6 +78,16 @@ static void data_write(const struct device *dev)
 }
 #endif /* (CONFIG_STREAM_BIDIRECTIONAL) */
 
+bool get_rx_first_data(void)
+{
+	return rx_first_data;
+}
+
+bool get_tx_first_data(void)
+{
+	return tx_first_data;
+}
+
 static void data_received(const struct device *dev, struct net_buf *buffer, size_t size)
 {
 	int ret;

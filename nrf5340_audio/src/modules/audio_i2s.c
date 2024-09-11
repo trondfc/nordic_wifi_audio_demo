@@ -11,6 +11,9 @@
 #include <zephyr/drivers/pinctrl.h>
 #include <nrfx_i2s.h>
 #include <nrfx_clock.h>
+#include <zephyr/logging/log.h>
+
+LOG_MODULE_REGISTER(i2s, CONFIG_MAIN_LOG_LEVEL);
 
 #include "audio_sync_timer.h"
 
@@ -82,7 +85,7 @@ void audio_i2s_set_next_buf(const uint8_t *tx_buf, uint32_t *rx_buf)
 		__ASSERT_NO_MSG(rx_buf != NULL);
 	}
 
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET) || CONFIG_AUDIO_DEV == 3 || CONFIG_AUDIO_DEV == 4) {
 		__ASSERT_NO_MSG(tx_buf != NULL);
 	}
 
@@ -112,6 +115,8 @@ void audio_i2s_start(const uint8_t *tx_buf, uint32_t *rx_buf)
 					    .buffer_size = I2S_SAMPLES_NUM};
 
 	nrfx_err_t ret;
+
+	LOG_WRN("Starting I2S");
 
 	/* Buffer size in 32-bit words */
 	ret = nrfx_i2s_start(&i2s_inst, &i2s_buf, 0);

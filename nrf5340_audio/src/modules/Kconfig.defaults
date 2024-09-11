@@ -5,7 +5,7 @@
 #
 
 # GATEWAY
-if AUDIO_DEV = 2
+if AUDIO_DEV = 2 || AUDIO_DEV = 3 || AUDIO_DEV = 4
 
 if AUDIO_SOURCE_USB
 

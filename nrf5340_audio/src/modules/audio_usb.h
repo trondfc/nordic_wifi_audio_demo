@@ -14,6 +14,9 @@
 #error USB only supports 48kHz
 #endif /* (CONFIG_AUDIO_SOURCE_USB && !CONFIG_AUDIO_SAMPLE_RATE_48000_HZ) */
 
+bool get_rx_first_data(void);
+bool get_tx_first_data(void);
+
 /**
  * @brief Set fifo buffers to be used by USB module and start sending/receiving data
  *

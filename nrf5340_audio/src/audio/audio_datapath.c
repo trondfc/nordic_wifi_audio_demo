@@ -233,7 +233,7 @@ static void drift_comp_state_set(enum drift_comp_state new_state)
  */
 static void audio_datapath_drift_compensation(uint32_t frame_start_ts_us)
 {
-	if (CONFIG_AUDIO_DEV == HEADSET) {
+	if (CONFIG_AUDIO_DEV == HEADSET || CONFIG_AUDIO_DEV == 3 || CONFIG_AUDIO_DEV == 4) {
 		/** For headsets we do not use the timestamp gotten from hci_tx_sync_get to adjust
 		 * for drift
 		 */
@@ -628,7 +628,7 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 	/********** I2S TX **********/
 	static uint8_t *tx_buf;
 
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET) || CONFIG_AUDIO_DEV == 3 || CONFIG_AUDIO_DEV == 4) {
 		if (tx_buf_released != NULL) {
 			/* Double buffered index */
 			uint32_t next_out_blk_idx = NEXT_IDX(ctrl_blk.out.cons_blk_idx);
@@ -728,6 +728,8 @@ static void audio_datapath_i2s_blk_complete(uint32_t frame_start_ts_us, uint32_t
 
 static void audio_datapath_i2s_start(void)
 {
+
+	LOG_WRN("Starting I2S");
 	int ret;
 
 	/* Double buffer I2S */
@@ -737,7 +739,7 @@ static void audio_datapath_i2s_start(void)
 	uint32_t *rx_buf_two = NULL;
 
 	/* TX */
-	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET)) {
+	if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL) || (CONFIG_AUDIO_DEV == HEADSET) || CONFIG_AUDIO_DEV == 3 || CONFIG_AUDIO_DEV == 4) {
 		ctrl_blk.out.cons_blk_idx = PREV_IDX(ctrl_blk.out.cons_blk_idx);
 		tx_buf_one = (uint8_t *)&ctrl_blk.out
 				     .fifo[ctrl_blk.out.cons_blk_idx * BLK_STEREO_NUM_SAMPS];
@@ -765,9 +767,13 @@ static void audio_datapath_i2s_start(void)
 		ERR_CHK_MSG(ret, "RX failed to get block");
 	}
 
+	LOG_WRN("Configuring I2S");
+
 	/* Start I2S */
 	audio_i2s_start(tx_buf_one, rx_buf_one);
+	LOG_WRN("I2S started");
 	audio_i2s_set_next_buf(tx_buf_two, rx_buf_two);
+	LOG_WRN("I2S double buffered");
 }
 
 static void audio_datapath_i2s_stop(void)
@@ -995,6 +1001,7 @@ void audio_datapath_stream_out(const uint8_t *buf, size_t size, uint32_t sdu_ref
 
 int audio_datapath_start(struct data_fifo *fifo_rx)
 {
+	LOG_WRN("Audio datapath start");
 	__ASSERT_NO_MSG(fifo_rx != NULL);
 
 	if (!ctrl_blk.datapath_initialized) {
@@ -1010,6 +1017,7 @@ int audio_datapath_start(struct data_fifo *fifo_rx)
 
 		audio_datapath_i2s_start();
 		ctrl_blk.stream_started = true;
+		LOG_WRN("i2s started");
 
 		return 0;
 	} else {

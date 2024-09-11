@@ -1,0 +1,10 @@
+config USB_AUDIO
+bool "USB audio"
+	default y
+
+  ## ISO related configs ##
+config BT_ISO_PERIPHERAL
+	default y
+
+config BT_ISO_MAX_CHAN
+	default 2
