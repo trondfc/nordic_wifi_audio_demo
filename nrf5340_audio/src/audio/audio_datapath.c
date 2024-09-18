@@ -166,6 +166,11 @@ static bool tone_active;
 static uint16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 100];
 static size_t test_tone_size;
 
+struct data_fifo *audio_datapath_fifo_tx_get(void)
+{
+	return ctrl_blk.out.fifo;
+}
+
 /**
  * @brief	Calculate error between sdu_ref and frame_start_ts_us.
  *

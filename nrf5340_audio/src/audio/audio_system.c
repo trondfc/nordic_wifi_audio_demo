@@ -50,6 +50,16 @@ static struct sw_codec_config sw_codec_cfg;
 static int16_t test_tone_buf[CONFIG_AUDIO_SAMPLE_RATE_HZ / 1000];
 static size_t test_tone_size;
 
+struct data_fifo* audio_system_fifo_tx_get(void)
+{
+	return &fifo_tx;
+}
+
+struct data_fifo* audio_system_fifo_rx_get(void)
+{
+	return &fifo_rx;
+}
+
 static bool sample_rate_valid(uint32_t sample_rate_hz)
 {
 	if (sample_rate_hz == 16000 || sample_rate_hz == 24000 || sample_rate_hz == 48000) {
@@ -106,7 +116,7 @@ static void audio_headset_configure(void)
 
 static void encoder_thread(void *arg1, void *arg2, void *arg3)
 {
-	LOG_WRN("Encoder thread started");
+	LOG_WRN("Encoder thread started ##");
 	int ret;
 	uint32_t blocks_alloced_num;
 	uint32_t blocks_locked_num;
@@ -123,7 +133,9 @@ static void encoder_thread(void *arg1, void *arg2, void *arg3)
 
 	while (1) {
 		/* Don't start encoding until the stream needing it has started */
+		LOG_WRN("Waiting for signal");
 		ret = k_poll(&encoder_evt, 1, K_FOREVER);
+		LOG_WRN("encoding started");
 
 		/* Get PCM data from I2S */
 		/* Since one audio frame is divided into a number of
@@ -393,6 +405,13 @@ void audio_system_start(void)
 
 	LOG_WRN("sw Codec initialized");
 	sw_codec_cfg.initialized = true;
+
+	if(sw_codec_cfg.encoder.enabled) {
+		LOG_WRN("Encoder enabled");
+	}
+	if(encoder_thread_id == NULL) {
+		LOG_WRN("Encoder thread id is NULL");
+	}
 
 	if (sw_codec_cfg.encoder.enabled && encoder_thread_id == NULL) {
 		encoder_thread_id = k_thread_create(

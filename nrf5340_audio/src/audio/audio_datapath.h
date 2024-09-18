@@ -14,6 +14,8 @@
 
 #include "sw_codec_select.h"
 
+struct data_fifo *audio_datapath_fifo_tx_get(void);
+
 /**
  * @brief Mixes a tone into the I2S TX stream
  *

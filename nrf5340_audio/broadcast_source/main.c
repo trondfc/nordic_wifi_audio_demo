@@ -554,6 +554,8 @@ int main(void)
 		bt_audio_codec_cfg_freq_to_freq_hz(CONFIG_BT_AUDIO_PREF_SAMPLE_RATE_VALUE),
 		CONFIG_BT_AUDIO_BITRATE_BROADCAST_SRC, VALUE_NOT_SET);
 	ERR_CHK_MSG(ret, "Failed to set sample- and bitrate");
+	LOG_WRN("Sample rate: %d, bitrate: %d", bt_audio_codec_cfg_freq_to_freq_hz(CONFIG_BT_AUDIO_PREF_SAMPLE_RATE_VALUE),
+		CONFIG_BT_AUDIO_BITRATE_BROADCAST_SRC);
 
 	/* Get advertising set for BIG0 */
 	ret = ext_adv_populate(0, &ext_adv_data[0], ext_adv_buf[0], ARRAY_SIZE(ext_adv_buf[0]),

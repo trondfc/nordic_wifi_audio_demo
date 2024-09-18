@@ -13,6 +13,10 @@
 
 #define VALUE_NOT_SET 0
 
+struct data_fifo* audio_system_fifo_tx_get(void);
+struct data_fifo* audio_system_fifo_rx_get(void);
+
+
 /**
  * @brief	Start the execution of the encoder thread.
  */
